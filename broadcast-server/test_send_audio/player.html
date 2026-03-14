@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket MP3 Player</title>
+</head>
+
+<body>
+  <h2>WebSocket Audio Player</h2>
+
+  <button id="connect">Connect</button>
+
+  <script>
+    let ws;
+    let audioContext;
+
+    document.getElementById("connect").onclick = () => {
+      // create audio context on user interaction (browser security rule)
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+      ws = new WebSocket("ws://localhost:8000/connect");
+      ws.binaryType = "arraybuffer";   // important
+
+      ws.onopen = () => console.log("Connected");
+
+      ws.onmessage = async (event) => {
+        try {
+          const buffer = await audioContext.decodeAudioData(event.data);
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContext.destination);
+          source.start();
+        } catch (err) {
+          console.error("Decode error:", err);
+        }
+      };
+
+      ws.onclose = () => console.log("Disconnected");
+      ws.onerror = (e) => console.error("WebSocket error", e);
+    };
+  </script>
+</body>
+</html>
