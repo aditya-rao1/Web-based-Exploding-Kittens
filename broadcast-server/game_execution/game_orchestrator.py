@@ -62,27 +62,21 @@ class GameOrchestrator:
     
 
    
-    async def handle_player_action(self, player_id, action):
+    async def handle_player_action(self, player_id, player_data):
         # 0. Need to verify if the game has started or not(that request should come from the front-end)
         #Later half just verify it now with a simple front-end request
         # 1. Validate turn
         # 2. Apply game logic
         # 3. Update internal state
-
-        player_data = json.loads(action)
         
         if player_data['event'] == 'PLAYER_JOINED':
             # Handle PLAYER_JOINED event: 
             # - Add the player to internal state if not present
             # - Broadcast updated public game state to all clients
-
-            # Assume self.player_states is a dict mapping player_id (uuid.UUID) to PlayerGameState
-            # and that self.public_game_state is an instance of PublicGameState
-
             # Add new player if not already present
             if player_id not in self.player_states:
                 # Initialize player game state with empty hand for now
-                logger.debug(f"Player joined with an id {player_id}")
+                logger.info(f"Player joined with an id {player_id}")
                 self.player_states[player_id] = PlayerGameState(
                     player_id=player_id,
                     player_cards=[],  # Empty at join, assign cards at game start
@@ -90,29 +84,18 @@ class GameOrchestrator:
                 )
             if len(self.player_states) == 4:
                 logger.info(f"Starting the game now")
-                self.initiate_game_state()
+                await self.initiate_game_state()
 
-        # Prepare a joined update payload and broadcast to all players
-        join_payload = {
-            "type": "PLAYER_JOINED",
-            "player_id": str(player_id),
-            "current_players": self.get_num_players(),
-            "state": self.build_public_state()
-        }
-
-        await self.messenger.broadcast_public_game_state(join_payload)
-
-        # else:
-
-        update_payload = {
-            "type": "GAME_UPDATE",
-            "state": self.build_public_state()
-        }
-
-        await self.messenger.broadcast_public_game_state(update_payload)
+        else:
+            logger.info("New player action taken.")
+            update_payload = {
+                "type": "GAME_UPDATE",
+                "state": self.build_public_state()
+            }
+            await self.messenger.broadcast_public_game_state(update_payload)
 
 
-    def initiate_game_state(self):
+    async def initiate_game_state(self):
         """
         Initialize core game state once enough players have joined.
         """
@@ -120,24 +103,31 @@ class GameOrchestrator:
         if not curr_messenger:
             logger.info("The messenger is null") 
         game_deck = self.create_deck()
+        logger.info("Created the deck sucessfully.")
         turn_order = self.create_turn_order(players=list(self.player_states.keys()))
+        logger.info("Created the turn order sucessfully.")
 
         self.public_game_state = PublicGameState(
             deck_size=len(game_deck),
             deck=game_deck,
             discard_pile=[],
-            current_turn_player_id=turn_order[0],
-            public_game_state=PublicGameStateEnum.WAITING_FOR_PLAYERS
+            current_turn_player_id=str(turn_order[0]),
+            public_game_state=PublicGameStateEnum.IN_PROGRESS,
+            num_players=4
         )
-        curr_messenger.broadcast_public_game_state({
-            "current_player_turn" : self.public_game_state['current_turn_player_id']
-            ,"num_players" : self.public_game_state['num_players']
-            , "deck_size" : self.public_game_state['deck_size']
+        await curr_messenger.broadcast_public_game_state({
+            "type" : "FINAL_PLAYER_JOINED",
+            "current_player_turn" : self.public_game_state.current_turn_player_id
+            ,"num_players" : self.public_game_state.num_players
+            , "deck_size" : self.public_game_state.deck_size, 
+            "public_game_state" : str(self.public_game_state), 
+            "game_started" : "true"
         })
         
 
 
     def build_public_state(self):
+        #Need to build the public game state for the orchestrator
         return {
             "deck_size": self.public_game_state.deck_size,
             "discard_pile": [card.card_type.value for card in self.public_game_state.discard_pile],

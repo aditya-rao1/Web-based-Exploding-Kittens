@@ -61,6 +61,7 @@ class PublicGameState:
     discard_pile: List[CoreCardTypeState]
     current_turn_player_id: uuid.UUID
     public_game_state: PublicGameStateEnum
+    num_players: int
 
 @dataclass
 class GameSessionState:

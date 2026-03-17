@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useWebSocket, createRoom } from '../hooks/useWebSocket';
 import Room from './Room';
 import Dialog from '@mui/material/Dialog';
@@ -7,7 +6,6 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import Modal from '@mui/material/Modal';
 
 
 function Lobby({ createRoom: isCreateRoom }) {
@@ -17,9 +15,7 @@ function Lobby({ createRoom: isCreateRoom }) {
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [roomCreated, setRoomCreated] = useState(false);
-    const navigate = useNavigate();
     const [createdRoomId, setCreatedRoomId] = useState(null);
-    const [joinedRoomId, setJoinedRoomId] = useState(null);
     const [idModal, setIdModal] = useState(false);
     
 
@@ -29,10 +25,10 @@ function Lobby({ createRoom: isCreateRoom }) {
 
 
     useEffect(() => {
-        // Check if game has started
         if (gameState?.game_started) {
             console.log('Game started!', gameState);
         }
+        console.log("Checking if the game has started and it is: ", gameState)
     }, [gameState]);
 
 
@@ -72,8 +68,13 @@ function Lobby({ createRoom: isCreateRoom }) {
 
     const displayError = error || wsError;
 
+
+    const hasGameStarted = !!gameState && (
+        gameState.game_started
+    );
+
     // If game has started, show Room component
-    if (gameState?.game_started) {
+    if (hasGameStarted) {
         return <Room gameState={gameState} roomId={roomId} userName={userName} />;
     }
 
@@ -183,7 +184,7 @@ function Lobby({ createRoom: isCreateRoom }) {
                             </p>
                         )}
                     </div>
-                    {gameState && !gameState.game_started && (
+                    {gameState && !hasGameStarted && (
                         <div style={{ padding: '1rem', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
                             <p>Waiting for more players to join...</p>
                             <p>Current players: {gameState.current_players || 0} / 4</p>

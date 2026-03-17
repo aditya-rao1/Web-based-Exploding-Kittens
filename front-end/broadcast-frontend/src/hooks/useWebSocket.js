@@ -40,6 +40,11 @@ export function useWebSocket(roomId, userName) {
       console.log('WebSocket connected');
       setIsConnected(true);
       setError(null);
+      //send intial player join message 
+      const playerInitial = {
+        'event' : 'PLAYER_JOINED'
+      }
+      ws.send(JSON.stringify(playerInitial))
     };
 
     ws.onmessage = (event) => {
@@ -47,9 +52,21 @@ export function useWebSocket(roomId, userName) {
         const message = JSON.parse(event.data);
         console.log('Received game state:', message);
 
-        // If backend sends full state, overwrite
-        // If later sending deltas, switch to merge
-        setGameState(message);
+        // Derive a basic "game started" flag when the backend begins
+        // sending turn/deck information, so the UI can switch views
+        // even if the backend does not explicitly set game_started yet.
+
+        const hasTurnInfo =
+          Boolean(message.current_player_turn) || Boolean(message.deck_size);
+        console.log("Has turn info flag is " + hasTurnInfo)
+        const normalized = {
+          ...message,
+          game_started: Boolean(message.game_started) ?? hasTurnInfo,
+        };
+        console.log("Normalized object: " + Boolean(message.game_started) ?? hasTurnInfo)
+        // Initial game state
+        setGameState(normalized);
+        console.log("State setter called with:", normalized);
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
       }
@@ -115,8 +132,7 @@ export function useWebSocket(roomId, userName) {
 }
 
 /**
- * HTTP-only room creation
- * (NO WebSocket connection here)
+ * HTTP-only room creation. No web sockets
  */
 export async function createRoom() {
   const response = await fetch(`${API_BASE_URL}/create-room`, {

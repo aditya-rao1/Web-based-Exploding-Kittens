@@ -20,6 +20,7 @@ class Messenger:
 
     # Client -> Server
     async def process_client_action(self, player_id, action):
+        logger.info(f"Processing client action wthin the messenger: {action}")
         await self.game_orchestrator.handle_player_action(player_id, action)
     
 

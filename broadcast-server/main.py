@@ -60,7 +60,7 @@ async def create_room():
         session.add(new_room)
         session.commit()
         session.refresh(new_room)
-    logger.info(f"New room created via client HTTP request: {new_room.id}")
+    logger.info(f"New room created via client: {new_room.id}")
     return {
         "room_id" : str(new_room.id),
         "max_players" : new_room.max_players,  
@@ -71,22 +71,21 @@ async def new_player_added(websocket : WebSocket, room_id : str, user_name : str
     await websocket.accept()
     if not user_name:
         await websocket.close(code=1008)
-        logger.info("No proper username passed in.")
+        logger.error("No proper username passed in.")
         return
     with Session(engine) as session: 
         room = session.get(Room, room_id)
         if not room:
             await websocket.close(code=1008)
-            logger.info(f"Web socket connection closed due to invalid room_id: {room_id}")
+            logger.error(f"Web socket connection closed due to invalid room_id: {room_id}")
             return
-        if len(room.current_players) >= 4:
+        if len(room.current_players) > 4:
             await websocket.close(code=1008)
-            logger.info(f"Websocket closed due to max players reached. Rejecting player.")
+            logger.error(f"Websocket closed due to max players reached. Rejecting player.")
             return
         #Need to init a connection_manager for a room if it doesn't already exist. Stored in memory for now
         connection_manager = get_or_create_connection_manager(room_id)
         new_player = Player(room_id = room.id, user_name=user_name)
-        room.current_players.append(new_player)
         player_connected = await connection_manager.store_player_connection(websocket, new_player.id)
         if not player_connected:
             await websocket.close(code=1011)
@@ -101,6 +100,7 @@ async def new_player_added(websocket : WebSocket, room_id : str, user_name : str
 
         game_orchestrator = get_or_create_game_orchestrator(room_id, connection_manager)
         messenger = game_orchestrator.get_messenger()
+        logger.info(f"Game orchestrator created and messenger created")
         if not messenger:
             await websocket.close(code=1011)
             logger.error("Failed to get messenger for game orchestrator")
@@ -110,6 +110,7 @@ async def new_player_added(websocket : WebSocket, room_id : str, user_name : str
             while True:
                 # Wait for the client to send a game move
                 client_data = await websocket.receive_json()
+                logger.info(f"Received client information: {client_data} and processing client action.")
                 # Pass the raw data to the Messenger to figure out what to do
                 await messenger.process_client_action(new_player.id, client_data)
                 
