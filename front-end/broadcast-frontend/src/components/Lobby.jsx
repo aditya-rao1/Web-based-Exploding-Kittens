@@ -20,7 +20,7 @@ function Lobby({ createRoom: isCreateRoom }) {
     
 
 
-    const { connect, isConnected, gameState, wsError } =
+    const { connect, isConnected, publicGameState, privateGameState, wsError} =
         useWebSocket(roomId, userName);
 
 
@@ -75,7 +75,8 @@ function Lobby({ createRoom: isCreateRoom }) {
 
     // If game has started, show Room component
     if (hasGameStarted) {
-        return <Room gameState={gameState} roomId={roomId} userName={userName} />;
+        //POSSIBLE BUG: May not happen but if the privateGameState update has not been sent, may cause problems
+        return <Room publicGameState={publicGameState} privateGameState={privateGameState} roomId={roomId} userName={userName} />;
     }
 
     return (

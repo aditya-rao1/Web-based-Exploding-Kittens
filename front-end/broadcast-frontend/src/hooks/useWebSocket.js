@@ -10,7 +10,8 @@ const WS_BASE_URL = 'ws://localhost:8000';
  */
 export function useWebSocket(roomId, userName) {
   const [isConnected, setIsConnected] = useState(false);
-  const [gameState, setGameState] = useState(null);
+  const [publicGameState, setPublicGameState] = useState(null);
+  const [privateGameState, setPrivateGameState] = useState(null);
   const [error, setError] = useState(null);
 
   const wsRef = useRef(null);
@@ -47,6 +48,8 @@ export function useWebSocket(roomId, userName) {
       ws.send(JSON.stringify(playerInitial))
     };
 
+
+    //TODO: Refactor
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
@@ -59,14 +62,29 @@ export function useWebSocket(roomId, userName) {
         const hasTurnInfo =
           Boolean(message.current_player_turn) || Boolean(message.deck_size);
         console.log("Has turn info flag is " + hasTurnInfo)
-        const normalized = {
-          ...message,
-          game_started: Boolean(message.game_started) ?? hasTurnInfo,
-        };
-        console.log("Normalized object: " + Boolean(message.game_started) ?? hasTurnInfo)
+
+
+        
+        //Updates for public game state
+        if (message.type === "FINAL_PLAYER_JOINED" || messasge.type === "PLAYER_JOINED") {
+          const normalized = {
+            ...message,
+            game_started: Boolean(message.game_started) ?? hasTurnInfo,
+          };
+          console.log("PUBLIC GAME STATE UPDATE: ", normalized);
+          setPublicGameState(normalized);
+
+        }
+        //Updates for private game sate
+        else if (messsage.type === "PRIVATE_UPDATE")  {
+          const playerHand = {
+            ...message
+          } 
+          console.log("PRIVATE GAME STATE UPDATE: ", playerHand)
+          setPrivateGameState(playerHand);
+        }
+        
         // Initial game state
-        setGameState(normalized);
-        console.log("State setter called with:", normalized);
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
       }
@@ -112,7 +130,7 @@ export function useWebSocket(roomId, userName) {
     }
 
     setIsConnected(false);
-    setGameState(null);
+    setPublicGameState(null);
   }, []);
 
   // Cleanup only on unmount
@@ -124,7 +142,8 @@ export function useWebSocket(roomId, userName) {
 
   return {
     isConnected,
-    gameState,
+    publicGameState, //state periodically updated
+    privateGameState,
     error,
     connect,    // explicitly join room
     disconnect // explicitly leave room

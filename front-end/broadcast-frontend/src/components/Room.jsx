@@ -1,13 +1,15 @@
 import React from 'react';
 import GameCard from './GameCard';
+import { useState } from 'react';
 
-function Room({ gameState, roomId, userName }) {
+function Room({ publicGameState, privateGameState, roomId, userName }) {
     const isGameStarted =
-        !!gameState &&
-        (gameState.game_started ||
-            Boolean(gameState.current_turn_player_id) ||
-            Boolean(gameState.turn_order));
-
+        !!publicGameState &&
+        (publicGameState.game_started ||
+            Boolean(publicGameState.current_turn_player_id) ||
+            Boolean(publicGameState.turn_order));
+    
+    const [playerHand, setPlayerHand] = useState([]);
     if (!isGameStarted) {
         return (
             <div style={{ padding: '2rem' }}>
@@ -16,13 +18,16 @@ function Room({ gameState, roomId, userName }) {
         );
     }
 
+    (privateGameState && privateGameState.player_cards) ? 
+        setPlayerHand(privateGameState.player_cards) :  
+        console.error("There is something wrong with the way the hands have dealt.")
     const {
         turn_order,
         current_turn_player_id,
         deck,
         deck_size,
         discard_pile,
-    } = gameState || {};
+    } = publicGameState || {};
 
     const visibleDeckCount =
         typeof deck_size === 'number'
@@ -32,10 +37,6 @@ function Room({ gameState, roomId, userName }) {
             : 0;
 
     const visibleDiscardPile = Array.isArray(discard_pile) ? discard_pile : [];
-
-    // Placeholder player hand until backend sends per-player cards
-    const mockHand = ['NOPE', 'ATTACK', 'DEFUSE', 'SKIP'];
-
     return (
         <div
             style={{
@@ -56,7 +57,7 @@ function Room({ gameState, roomId, userName }) {
                 }}
             >
                 <h1 style={{ marginBottom: '0.5rem' }}>
-                    Exploding Kittens - Game Started!
+                    Exploding Kittens
                 </h1>
                 <p>
                     <strong>Room ID:</strong> {roomId}
@@ -187,7 +188,7 @@ function Room({ gameState, roomId, userName }) {
                 )}
             </div>
 
-            {/* Bottom: player hand */}
+            {/* Bottom: player hand(PRIVATE) */}
             <div
                 style={{
                     borderTop: '1px solid rgba(0,0,0,0.1)',
@@ -204,7 +205,7 @@ function Room({ gameState, roomId, userName }) {
                         paddingBottom: '0.25rem',
                     }}
                 >
-                    {mockHand.map((card, index) => (
+                    {playerHand.map((card, index) => (
                         <GameCard key={`${card}-${index}`} cardType={card} />
                     ))}
                 </div>

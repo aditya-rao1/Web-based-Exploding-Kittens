@@ -61,6 +61,16 @@ class GameOrchestrator:
         return turn_order
     
 
+    def generate_initial_hand() -> List[CoreCardTypeState]:
+        import random
+        hand = []
+        hand.append(CoreCardTypeState(card_type=CardType.DEFUSE))
+        #For simplicity's sake this function will spawn new cards
+        all_card_types = list(CardType)
+        remainder_cards = random.sample(all_card_types, 4)
+        return remainder_cards
+            
+
    
     async def handle_player_action(self, player_id, player_data):
         # 0. Need to verify if the game has started or not(that request should come from the front-end)
@@ -68,14 +78,8 @@ class GameOrchestrator:
         # 1. Validate turn
         # 2. Apply game logic
         # 3. Update internal state
-        
         if player_data['event'] == 'PLAYER_JOINED':
-            # Handle PLAYER_JOINED event: 
-            # - Add the player to internal state if not present
-            # - Broadcast updated public game state to all clients
-            # Add new player if not already present
             if player_id not in self.player_states:
-                # Initialize player game state with empty hand for now
                 logger.info(f"Player joined with an id {player_id}")
                 self.player_states[player_id] = PlayerGameState(
                     player_id=player_id,
@@ -85,16 +89,33 @@ class GameOrchestrator:
             if len(self.player_states) == 4:
                 logger.info(f"Starting the game now")
                 await self.initiate_game_state()
+                await self.set_up_individual_players()
+
 
         else:
+            #TODO: Evolve this functionality as main game loop evolves
             logger.info("New player action taken.")
             update_payload = {
                 "type": "GAME_UPDATE",
                 "state": self.build_public_state()
             }
-            await self.messenger.broadcast_public_game_state(update_payload)
+            await self.messenger.build_public_game_updates(update_payload)
 
 
+    async def set_up_individual_players(self):
+        #TODO: Have this method to send a JSON on the player's initial state.
+        curr_messenger = self.messenger
+        for player_id, player_state in self.player_states:
+            player_hand = self.generate_initial_hand()
+            logger.info(f"Assigning player: {player_id}, hand: {player_hand}")
+            player_state.player_cards = player_hand
+            update_message = {
+                "type" : "PRIVATE_UPDATE",
+                "player_game_state" : str(player_state)
+            }
+            #Broadcast the update to all connected clients
+            curr_messenger.broadcast_private_game_state(player_id, update_message)
+    
     async def initiate_game_state(self):
         """
         Initialize core game state once enough players have joined.
@@ -115,6 +136,9 @@ class GameOrchestrator:
             public_game_state=PublicGameStateEnum.IN_PROGRESS,
             num_players=4
         )
+        for player_state in self.player_states.values:
+            # Append a randomly sampled hand to each player
+            player_state.player_cards = self.generate_initial_hand()
         await curr_messenger.broadcast_public_game_state({
             "type" : "FINAL_PLAYER_JOINED",
             "current_player_turn" : self.public_game_state.current_turn_player_id
@@ -124,9 +148,10 @@ class GameOrchestrator:
             "game_started" : "true"
         })
         
+            
 
 
-    def build_public_state(self):
+    async def build_public_game_updates(self):
         #Need to build the public game state for the orchestrator
         return {
             "deck_size": self.public_game_state.deck_size,
