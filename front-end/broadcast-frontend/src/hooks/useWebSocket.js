@@ -66,7 +66,7 @@ export function useWebSocket(roomId, userName) {
 
         
         //Updates for public game state
-        if (message.type === "FINAL_PLAYER_JOINED" || messasge.type === "PLAYER_JOINED") {
+        if (message.type === "FINAL_PLAYER_JOINED" || message.type === "PLAYER_JOINED") {
           const normalized = {
             ...message,
             game_started: Boolean(message.game_started) ?? hasTurnInfo,
@@ -76,7 +76,7 @@ export function useWebSocket(roomId, userName) {
 
         }
         //Updates for private game sate
-        else if (messsage.type === "PRIVATE_UPDATE")  {
+        else if (message.type === "PRIVATE_UPDATE")  {
           const playerHand = {
             ...message
           } 

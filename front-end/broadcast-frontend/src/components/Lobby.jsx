@@ -25,11 +25,10 @@ function Lobby({ createRoom: isCreateRoom }) {
 
 
     useEffect(() => {
-        if (gameState?.game_started) {
-            console.log('Game started!', gameState);
+        if (publicGameState?.game_started) {
+            console.log('Game started!', publicGameState);
         }
-        console.log("Checking if the game has started and it is: ", gameState)
-    }, [gameState]);
+    }, [publicGameState]);
 
 
     //check if relevant info has changed for a web socket connection to occur
@@ -69,13 +68,12 @@ function Lobby({ createRoom: isCreateRoom }) {
     const displayError = error || wsError;
 
 
-    const hasGameStarted = !!gameState && (
-        gameState.game_started
+    const hasGameStarted = !!publicGameState && (
+        publicGameState.game_started
     );
 
     // If game has started, show Room component
-    if (hasGameStarted) {
-        //POSSIBLE BUG: May not happen but if the privateGameState update has not been sent, may cause problems
+    if (hasGameStarted && privateGameState) {
         return <Room publicGameState={publicGameState} privateGameState={privateGameState} roomId={roomId} userName={userName} />;
     }
 
@@ -179,16 +177,16 @@ function Lobby({ createRoom: isCreateRoom }) {
                                 <span style={{ color: 'orange' }}>Connecting...</span>
                             )}
                         </p>
-                        {gameState && (
+                        {publicGameState && (
                             <p>
-                                Players: {gameState.current_players || 0} / 4
+                                Players: {publicGameState.current_players || 0} / 4
                             </p>
                         )}
                     </div>
-                    {gameState && !hasGameStarted && (
+                    {publicGameState && !hasGameStarted && (
                         <div style={{ padding: '1rem', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
                             <p>Waiting for more players to join...</p>
-                            <p>Current players: {gameState.current_players || 0} / 4</p>
+                            <p>Current players: {publicGameState.current_players || 0} / 4</p>
                         </div>
                     )}
                 </div>

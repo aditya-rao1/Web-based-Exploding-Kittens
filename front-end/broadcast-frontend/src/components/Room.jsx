@@ -1,6 +1,5 @@
-import React from 'react';
 import GameCard from './GameCard';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function Room({ publicGameState, privateGameState, roomId, userName }) {
     const isGameStarted =
@@ -18,9 +17,19 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
         );
     }
 
-    (privateGameState && privateGameState.player_cards) ? 
-        setPlayerHand(privateGameState.player_cards) :  
-        console.error("There is something wrong with the way the hands have dealt.")
+
+    useEffect(() => {
+        console.log("Updating hand since private game state has changed")
+        updateInitialHand()
+    }, [privateGameState]);
+
+    
+    function updateInitialHand() {
+        if (privateGameState?.player_game_state?.player_cards) {
+            setPlayerHand(privateGameState.player_game_state.player_cards);
+        }
+    }
+    
     const {
         turn_order,
         current_turn_player_id,
@@ -68,7 +77,7 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
                 <p>
                     <strong>Current Turn:</strong>{' '}
                     {current_turn_player_id
-                        ? `Player ${String(current_turn_player_id).substring(0, 8)}`
+                        ? `Player ${String(current_turn_player_id)}`
                         : 'Unknown'}
                 </p>
             </div>

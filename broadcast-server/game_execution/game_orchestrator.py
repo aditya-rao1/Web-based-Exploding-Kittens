@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import json
 import logging
 import sys
@@ -29,26 +30,26 @@ class GameOrchestrator:
         return self.messenger
         
 
-    def create_deck(self) -> List[CoreCardTypeState]:
+    def create_deck(self):
         import random
         deck = []
         for _ in range(6):            
-            deck.append(CoreCardTypeState(card_type=CardType.DEFUSE))
+            deck.append((CardType.DEFUSE).value)
         
         for _ in range(5):  
-            deck.append(CoreCardTypeState(card_type=CardType.EXPLODING_KITTEN))
-            deck.append(CoreCardTypeState(card_type=CardType.SEE_THE_FUTURE))
-            deck.append(CoreCardTypeState(card_type=CardType.SKIP))
+            deck.append((CardType.EXPLODING_KITTEN).value)
+            deck.append((CardType.SEE_THE_FUTURE).value)
+            deck.append((CardType.SKIP).value)
         
         for _ in range(4):            
-            deck.append(CoreCardTypeState(card_type=CardType.ATTACK))
-            deck.append(CoreCardTypeState(card_type=CardType.SHUFFLE))
-            deck.append(CoreCardTypeState(card_type=CardType.FAVOR))
-            deck.append(CoreCardTypeState(card_type=CardType.DRAW_FROM_BOTTOM))
-            deck.append(CoreCardTypeState(card_type=CardType.NOPE))
+            deck.append((CardType.ATTACK).value)
+            deck.append((CardType.SHUFFLE).value)
+            deck.append((CardType.FAVOR).value)
+            deck.append((CardType.DRAW_FROM_BOTTOM).value)
+            deck.append((CardType.NOPE).value)
 
         for _ in range(15):            
-            deck.append(CoreCardTypeState(card_type=CardType.CAT_CARD))
+            deck.append((CardType.CAT_CARD).value)
 
         #Shuffle deck
         random.shuffle(deck)
@@ -61,14 +62,17 @@ class GameOrchestrator:
         return turn_order
     
 
-    def generate_initial_hand() -> List[CoreCardTypeState]:
+    def generate_initial_hand(self):
         import random
         hand = []
-        hand.append(CoreCardTypeState(card_type=CardType.DEFUSE))
+        hand.append((CardType.DEFUSE).value)
         #For simplicity's sake this function will spawn new cards
         all_card_types = list(CardType)
         remainder_cards = random.sample(all_card_types, 4)
-        return remainder_cards
+        for remainder_card in remainder_cards:
+            hand.append(remainder_card.value)
+        logger.info(f"Intial hand for player is: {hand}")
+        return hand
             
 
    
@@ -82,7 +86,7 @@ class GameOrchestrator:
             if player_id not in self.player_states:
                 logger.info(f"Player joined with an id {player_id}")
                 self.player_states[player_id] = PlayerGameState(
-                    player_id=player_id,
+                    player_id=str(player_id),
                     player_cards=[],  # Empty at join, assign cards at game start
                     alive=True
                 )
@@ -103,18 +107,17 @@ class GameOrchestrator:
 
 
     async def set_up_individual_players(self):
-        #TODO: Have this method to send a JSON on the player's initial state.
         curr_messenger = self.messenger
-        for player_id, player_state in self.player_states:
+        for player_id, player_state in self.player_states.items():
             player_hand = self.generate_initial_hand()
             logger.info(f"Assigning player: {player_id}, hand: {player_hand}")
             player_state.player_cards = player_hand
             update_message = {
                 "type" : "PRIVATE_UPDATE",
-                "player_game_state" : str(player_state)
+                "player_game_state" : asdict(player_state)
             }
             #Broadcast the update to all connected clients
-            curr_messenger.broadcast_private_game_state(player_id, update_message)
+            await curr_messenger.broadcast_private_game_state(player_id, update_message)
     
     async def initiate_game_state(self):
         """
@@ -133,18 +136,15 @@ class GameOrchestrator:
             deck=game_deck,
             discard_pile=[],
             current_turn_player_id=str(turn_order[0]),
-            public_game_state=PublicGameStateEnum.IN_PROGRESS,
+            public_game_state=PublicGameStateEnum.IN_PROGRESS.value,
             num_players=4
-        )
-        for player_state in self.player_states.values:
-            # Append a randomly sampled hand to each player
-            player_state.player_cards = self.generate_initial_hand()
+        ) 
         await curr_messenger.broadcast_public_game_state({
             "type" : "FINAL_PLAYER_JOINED",
             "current_player_turn" : self.public_game_state.current_turn_player_id
             ,"num_players" : self.public_game_state.num_players
             , "deck_size" : self.public_game_state.deck_size, 
-            "public_game_state" : str(self.public_game_state), 
+            "public_game_state" : asdict(self.public_game_state), 
             "game_started" : "true"
         })
         
@@ -156,7 +156,7 @@ class GameOrchestrator:
         return {
             "deck_size": self.public_game_state.deck_size,
             "discard_pile": [card.card_type.value for card in self.public_game_state.discard_pile],
-            "current_turn_player_id": str(self.public_game_state.current_turn_player_id)
+            "current_turn_player_id": asdict(self.public_game_state.current_turn_player_id)
         }
 
     
