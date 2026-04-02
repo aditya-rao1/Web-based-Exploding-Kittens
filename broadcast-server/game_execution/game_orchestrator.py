@@ -163,7 +163,7 @@ class GameOrchestrator:
         logger.info(f"The current player's position is {position_in_order}")
         if position_in_order == 3:
             self.public_game_state.current_turn_player_id = player_order[0]
-            logger.info(f"UPDATE: Current player is {self.public_game_state.current_player_id}")
+            logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
         else:
             self.public_game_state.current_turn_player_id = player_order[position_in_order + 1]
             logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
