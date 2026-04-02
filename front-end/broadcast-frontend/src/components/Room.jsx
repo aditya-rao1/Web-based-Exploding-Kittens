@@ -1,35 +1,18 @@
 import GameCard from './GameCard';
 import { useState, useEffect } from 'react';
 
-function Room({ publicGameState, privateGameState, roomId, userName }) {
+function Room({ publicGameState, privateGameState, roomId, userName, sendToServer }) {
     const isGameStarted =
         !!publicGameState &&
         (publicGameState.game_started ||
             Boolean(publicGameState.current_turn_player_id) ||
             Boolean(publicGameState.turn_order));
     
+    const [currentCard, setCurrentCard] = useState([])
     const [playerHand, setPlayerHand] = useState([]);
-    if (!isGameStarted) {
-        return (
-            <div style={{ padding: '2rem' }}>
-                <p>Waiting for game to start...</p>
-            </div>
-        );
-    }
-
-
-    useEffect(() => {
-        console.log("Updating hand since private game state has changed")
-        updateInitialHand()
-    }, [privateGameState]);
-
-    
-    function updateInitialHand() {
-        if (privateGameState?.player_game_state?.player_cards) {
-            setPlayerHand(privateGameState.player_game_state.player_cards);
-        }
-    }
-    
+    const [publicDeck, setPublicDeck] = useState([]);
+    const [discardPile, setDiscardPile] = useState([]);
+    const [currentPlayerTurn, setCurrentPlayerTurn] = useState(null);
     const {
         turn_order,
         current_turn_player_id,
@@ -44,8 +27,87 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
             : Array.isArray(deck)
             ? deck.length
             : 0;
+    
+    if (!isGameStarted) {
+        return (
+            <div style={{ padding: '2rem' }}>
+                <p>Waiting for game to start...</p>
+            </div>
+        );
+    }
 
-    const visibleDiscardPile = Array.isArray(discard_pile) ? discard_pile : [];
+    // Update the public deck
+    useEffect(() => {
+        console.log("Public updates: ")
+        updatePublicDeck()
+        updateCurrentPlayerTurn()
+        updateDsicardPile()
+        console.log("Public deck: ", publicDeck)
+        console.log("Public current player: ", currentPlayerTurn)
+        console.log("Public discard pile: ", discardPile)
+    }, [publicGameState]);
+
+
+    // Update the player's private hand
+    useEffect(() => {
+        console.log("Updating hand since private game state has changed")
+        updateInitialHand()
+    }, [privateGameState]);
+
+
+    function handlePlay(cardToPlay) {
+        const current_player_state = privateGameState.player_game_state
+        if(current_player_state.player_id === currentPlayerTurn && cardToPlay != null) {
+            const cardPlayedEvent = {
+                'event' : 'CARD_PLAYED', 
+                'current_player_id' : currentPlayerTurn, 
+                'card_played' : cardToPlay,
+                'current_player_state' : privateGameState.player_game_state
+            }
+            sendToServer(cardPlayedEvent)
+            console.log("Sent event to server: ", cardPlayedEvent)
+                
+
+            //TODO: Need to handle changing player turn
+
+
+        }   
+        else  {
+            console.error("Playing card failed")
+        }
+    }
+
+    function handleDraw() {
+        console.log("Draw card")
+        //handle function for drawing
+        //remove from deck pile, will need to be faceUp
+        //cannot draw unless current player turn.
+    }
+    
+    function updateInitialHand() {
+        if (privateGameState?.player_game_state?.player_cards) {
+            setPlayerHand(privateGameState.player_game_state.player_cards);
+        }
+    }
+
+    function updatePublicDeck() {
+        if (publicGameState?.public_game_state?.deck) {
+            setPublicDeck(publicGameState.public_game_state.deck);
+        }
+    } 
+    
+    function updateDsicardPile() {
+        if(publicGameState?.public_game_state?.discard_pile) {
+            setDiscardPile(publicGameState.public_game_state.discard_pile);
+        }
+    }
+    
+    function updateCurrentPlayerTurn() {
+        if (publicGameState?.public_game_state?.current_turn_player_id) {
+            setCurrentPlayerTurn(publicGameState.public_game_state.current_turn_player_id)
+        }
+        console.log("The current player's turn is ", currentPlayerTurn)
+    }
     return (
         <div
             style={{
@@ -76,8 +138,8 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
                 </p>
                 <p>
                     <strong>Current Turn:</strong>{' '}
-                    {current_turn_player_id
-                        ? `Player ${String(current_turn_player_id)}`
+                    {currentPlayerTurn
+                        ? `Player ${String(currentPlayerTurn)}`
                         : 'Unknown'}
                 </p>
             </div>
@@ -110,18 +172,39 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
                                 height: '90px',
                             }}
                         >
-                            {/* Single visible card representing the deck */}
+                            {/* Face-down deck stack */}
                             <div
                                 style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
+                                    position: 'relative',
+                                    width: '60px',
+                                    height: '90px',
                                 }}
                             >
-                                <GameCard isFaceDown cardType={null} />
+                                {publicDeck.map((card, index) => {
+                                    // Keep the visible stack compact while still rendering
+                                    // multiple cards for depth.
+                                    const stackIndex = Math.min(index, 7);
+                                    return (
+                                        <div
+                                            key={`${card}-${index}`}
+                                            style={{
+                                                position: 'absolute',
+                                                top: `${stackIndex * 2}px`,
+                                                left: `${stackIndex * 1}px`,
+                                                zIndex: stackIndex,
+                                            }}
+                                        >
+                                            <GameCard
+                                                cardType={card}
+                                                isFaceDown={true}
+                                                onClick={handleDraw}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
-                        <p style={{ marginTop: '0.5rem' }}>
+                        <p style={{ marginTop: '2.0rem' }}>
                             Cards remaining: {visibleDeckCount}
                         </p>
                     </div>
@@ -136,11 +219,11 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
                                 justifyContent: 'center',
                             }}
                         >
-                            {visibleDiscardPile.length === 0 ? (
+                            {discardPile.length === 0 ? (
                                 <span>No cards discarded yet</span>
                             ) : (
-                                visibleDiscardPile
-                                    .slice(-3)
+                                discardPile
+                                    .slice(-1) 
                                     .map((card, index) => (
                                         <GameCard
                                             key={`${card}-${index}`}
@@ -215,19 +298,9 @@ function Room({ publicGameState, privateGameState, roomId, userName }) {
                     }}
                 >
                     {playerHand.map((card, index) => (
-                        <GameCard key={`${card}-${index}`} cardType={card} />
+                        <GameCard key={`${card}-${index}`} cardType={card} onClick={() => handlePlay(card)}/>
                     ))}
                 </div>
-                <p
-                    style={{
-                        marginTop: '0.5rem',
-                        fontSize: '0.85rem',
-                        color: '#555',
-                    }}
-                >
-                    This is an initial placeholder hand. Future iterations will
-                    show your real cards from the server.
-                </p>
             </div>
         </div>
     );

@@ -18,6 +18,15 @@ export function useWebSocket(roomId, userName) {
   const reconnectTimeoutRef = useRef(null);
   const shouldReconnectRef = useRef(false);
 
+  const sendToServer = useCallback((message) => {
+    var currentSocket = wsRef.current
+    if (!roomId || !userName || !currentSocket) { // Changed | to ||
+      console.error("For some reason the roomId or userName is not set.")
+      return;
+    }
+    currentSocket.send(JSON.stringify(message))
+  }, [roomId, userName]);
+
   const connect = useCallback(() => {
     if (!roomId || !userName) {
       console.warn('Missing roomId or userName — cannot connect');
@@ -36,7 +45,6 @@ export function useWebSocket(roomId, userName) {
     )}`;
 
     const ws = new WebSocket(wsUrl);
-
     ws.onopen = () => {
       console.log('WebSocket connected');
       setIsConnected(true);
@@ -75,7 +83,15 @@ export function useWebSocket(roomId, userName) {
           setPublicGameState(normalized);
 
         }
-        //Updates for private game sate
+        else if(message.type === "PUBLIC_UPDATE") {
+          const publicUpdate = {
+              ...message, 
+              game_started: Boolean(message.game_started) ?? hasTurnInfo
+          }
+          console.log("PUBLIC GAME STATE UPDATE: ", publicUpdate)
+          setPublicGameState(publicUpdate)  
+        }
+        //Updates for private game state
         else if (message.type === "PRIVATE_UPDATE")  {
           const playerHand = {
             ...message
@@ -146,7 +162,8 @@ export function useWebSocket(roomId, userName) {
     privateGameState,
     error,
     connect,    // explicitly join room
-    disconnect // explicitly leave room
+    disconnect, // explicitly leave room, 
+    sendToServer
   };
 }
 

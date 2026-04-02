@@ -60,6 +60,7 @@ class PublicGameState:
     deck : List[CoreCardTypeState]
     discard_pile: List[CoreCardTypeState]
     current_turn_player_id: uuid.UUID
+    player_order : List[uuid.UUID]
     public_game_state: PublicGameStateEnum
     num_players: int
 

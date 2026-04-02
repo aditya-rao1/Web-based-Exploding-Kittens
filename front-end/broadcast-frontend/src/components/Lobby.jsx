@@ -20,14 +20,14 @@ function Lobby({ createRoom: isCreateRoom }) {
     
 
 
-    const { connect, isConnected, publicGameState, privateGameState, wsError} =
+    const { connect, isConnected, publicGameState, privateGameState, wsError, sendToServer} =
         useWebSocket(roomId, userName);
 
 
     useEffect(() => {
-        if (publicGameState?.game_started) {
-            console.log('Game started!', publicGameState);
-        }
+        // if (publicGameState?.game_started) {
+        //     console.log('Game started!', publicGameState);
+        // }
     }, [publicGameState]);
 
 
@@ -74,7 +74,7 @@ function Lobby({ createRoom: isCreateRoom }) {
 
     // If game has started, show Room component
     if (hasGameStarted && privateGameState) {
-        return <Room publicGameState={publicGameState} privateGameState={privateGameState} roomId={roomId} userName={userName} />;
+        return <Room publicGameState={publicGameState} privateGameState={privateGameState} roomId={roomId} userName={userName} sendToServer={sendToServer} />;
     }
 
     return (
