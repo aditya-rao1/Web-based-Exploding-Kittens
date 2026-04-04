@@ -101,8 +101,9 @@ class GameOrchestrator:
         elif player_data['event'] == 'CARD_PLAYED':
             logger.info(f"Player {self.public_game_state.current_turn_player_id} played a card.")
             await self.update_state_for_card_played(player_id, player_data)
-
-
+        elif player_data['event'] == 'CARD_DRAWN':
+            logger.info(f"Player {self.public_game_state.current_turn_player_id} drew a card.")
+            await self.update_state_for_card_drawn(player_id, player_data)
     async def set_up_individual_players(self):
         curr_messenger = self.messenger
         for player_id, player_state in self.player_states.items():
@@ -157,17 +158,7 @@ class GameOrchestrator:
             "player_game_state" : asdict(player_state)
         }
         await messenger.broadcast_private_game_state(current_player_id, private_game_update)
-        #Need to build the public game state for the orchestrator
-        player_order = self.public_game_state.player_order
-        position_in_order = player_order.index(str(current_player_id))
-        logger.info(f"The current player's position is {position_in_order}")
-        if position_in_order == 3:
-            self.public_game_state.current_turn_player_id = player_order[0]
-            logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
-        else:
-            self.public_game_state.current_turn_player_id = player_order[position_in_order + 1]
-            logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
-        
+        # Update discard pile.                
         core_card_played = CoreCardTypeState(
             card_type=current_player_data['card_played']
         )
@@ -183,10 +174,43 @@ class GameOrchestrator:
         await messenger.broadcast_public_game_state(public_game_update)
             
 
+    #Update current player turn when a drawn_card event is presented
+    async def update_state_for_card_drawn(self, current_player_id, current_player_data):
+        # Update private state(player's hand) with card drawn
+        self.player_states[current_player_id].player_cards.append(current_player_data['card_drawn'])
+        messenger = self.get_messenger()
+        player_state = self.player_states[current_player_id]
+        private_game_update = {
+            "type": "PRIVATE_UPDATE",
+            "player_game_state" : asdict(player_state) 
+        }
+        await messenger.broadcast_private_game_state(current_player_id, private_game_update)
+        # Update public state
 
+        # Get the last index for removal from the public deck
+        deck_size = len(self.public_game_state.deck)
+        self.public_game_state.deck.pop()
 
+        # Update player turn 
+        messenger = self.get_messenger()
+        player_order = self.public_game_state.player_order
+        position_in_order = player_order.index(str(current_player_id))
+        logger.info(f"The current player's position is {position_in_order}")
+        if position_in_order == 3:
+            self.public_game_state.current_turn_player_id = player_order[0]
+            logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
+        else:
+            self.public_game_state.current_turn_player_id = player_order[position_in_order + 1]
+            logger.info(f"UPDATE: Current player is {self.public_game_state.current_turn_player_id}")
+        public_game_update = {
+            "type" : "PUBLIC_UPDATE", 
+            "current_player_turn" : self.public_game_state.current_turn_player_id, 
+            "public_game_state" : asdict(self.public_game_state), 
+            "game_started" : "true"
+        }
+        await messenger.broadcast_public_game_state(public_game_update)
         
-    
+
 
     def get_num_players(self) -> int:
         return len(self.player_states)

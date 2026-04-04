@@ -60,28 +60,31 @@ function Room({ publicGameState, privateGameState, roomId, userName, sendToServe
         if(current_player_state.player_id === currentPlayerTurn && cardToPlay != null) {
             const cardPlayedEvent = {
                 'event' : 'CARD_PLAYED', 
-                'current_player_id' : currentPlayerTurn, 
+                'current_player_id' : publicGameState.public_game_state.current_turn_player_id, 
                 'card_played' : cardToPlay,
                 'current_player_state' : privateGameState.player_game_state
             }
             sendToServer(cardPlayedEvent)
-            console.log("Sent event to server: ", cardPlayedEvent)
-                
-
-            //TODO: Need to handle changing player turn
-
-
+            console.log("Sent playing card event to server: ", cardPlayedEvent)
         }   
         else  {
             console.error("Playing card failed")
         }
     }
 
-    function handleDraw() {
-        console.log("Draw card")
-        //handle function for drawing
-        //remove from deck pile, will need to be faceUp
-        //cannot draw unless current player turn.
+    function handleDraw(cardToDraw) {
+        const current_player_state = privateGameState.player_game_state
+        if(current_player_state.player_id === currentPlayerTurn) {
+            const cardDrawedEvent = {
+                'event' : 'CARD_DRAWN', 
+                'current_player_id' : publicGameState.public_game_state.current_turn_player_id, 
+                'card_drawn' : cardToDraw,
+                'current_player_state' : privateGameState.player_game_state
+            } 
+            sendToServer(cardDrawedEvent)
+            console.log("Sent drawing card event to server ", cardDrawedEvent)
+        }
+        
     }
     
     function updateInitialHand() {
@@ -197,16 +200,13 @@ function Room({ publicGameState, privateGameState, roomId, userName, sendToServe
                                             <GameCard
                                                 cardType={card}
                                                 isFaceDown={true}
-                                                onClick={handleDraw}
+                                                onClick={() => handleDraw(card)}
                                             />
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                        <p style={{ marginTop: '2.0rem' }}>
-                            Cards remaining: {visibleDeckCount}
-                        </p>
                     </div>
 
                     {/* Discard pile area */}
